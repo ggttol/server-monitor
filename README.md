@@ -1,454 +1,142 @@
-# Unix System Monitoring Over SSH
+# 🖥️ Linux 服务器监控系统
 
-[![Build Status](https://travis-ci.org/zix99/sshsysmon.svg?branch=master)](https://travis-ci.org/zix99/sshsysmon)
+一个简洁高效的 Linux 服务器实时监控系统，支持通过 SSH 远程监控多台服务器。
 
-SshSysMon is a system/server monitoring tool that executes all of its operations over SSH without the
-need for installing agents across machines.
+## ✨ 功能特性
 
-Its goal is to provide simple self-hosted monitoring and alerting for small numbers of lightweight
-servers without the traditional overhead of a monitoring system.
+- 📊 **实时 Web 仪表盘** - 漂亮的可视化界面
+- 🌙 **亮色/暗色主题** - 一键切换，保护眼睛
+- 🔄 **自动刷新** - 数据每 10 秒自动更新
+- ➕ **服务器管理** - 支持添加/删除服务器
+- 📈 **多项监控指标**
+  - 内存使用情况
+  - 磁盘空间
+  - CPU 负载
+  - 网络流量
+  - 系统运行时间
+- 🔐 **SSH 安全连接** - 无需在服务器安装任何代理
 
-It monitors things in /proc and with simple command executions to monitor system vitals such as: memory, cpu load, drive space, swap, etc.
+## 🚀 快速开始
 
-
-![Html Dashboard](/examples/htmldash.jpg "Example of the HTML Summary Output")
-
-
-## Setup
-
-### Installation
-
-#### Via PyPi
-
-```bash
-pip install sshsysmon
-sshmon --help
-```
-
-#### Via Docker
-
-There is a docker image available on dockerhub based on alpine.
-
-It can be run with the following:
+### 1. 安装依赖
 
 ```bash
-docker run -it zix99/sshsysmon summary examples/starter.yml
+pip install paramiko pyyaml pybars3 requests python-dateutil flask
 ```
 
-If you have a config you wish to pass in, you can do so via a volume or swarm config.
+### 2. 配置服务器
 
-```bash
-docker run -it -v config.yml:config.yml zix99/sshsysmon summary config.yml
-```
+编辑 `servers.yml`：
 
-#### Manually (No Install)
-
-```bash
-# Requires python 2.x and pip:
-sudo apt-get install -y python python-pip python-dev
-
-# Download the latest SshSysMon:
-wget -O - https://github.com/zix99/sshsysmon/archive/master.tar.gz | tar xzv
-
-# Make sure the dependencies are installed:
-cd sshsysmon-master/
-pip install -r requirements.txt
-
-# Test it out!
-./sshmon summary examples/starter.yml
-```
-
-### Setting up a ssh key pair
-
-**You only need to do this if you are monitoring a remote server.**
-
-The best way to connect to remote servers is with private key created and added to the `authorized_hosts` file on
-all systems you are interested in monitoring.  While password authentication is supported, this
-is the easiest way to guarantee continued authentication to other hosts.
-
-On debian-based linux systems, setting up a key-pair to use with SSH is easy.  I would recommend
-you make a new linux user to only do monitoring on each machine, but it isn't required.
-
-```bash
-# 1. Create a new SSH key if you don't already have one. Follow the prompts, but leave the password blank
-ssh-keygen
-
-# 2. Install it on a user on another machine that you want to monitor
-ssh-copy-id username@remotehost
-```
-
-
-### Running
-
-The service has two commands, `summary` and `check`.
-
-#### Summary
-
-`summary` will print out a human-readable summary of all servers specified in the config. It is a
-great way to validate your config.
-
-It can be executed with:
-
-    ./sshmon.py summary examples/starter.yml
-
-It also can be told to use various templates. See templating section below. Eg, to use the html template:
-
-    ./sshmon.py -f html summary examples/starter.yml
-
-#### Check
-
-`check` is meant to be executed as part of a scheduled job, and will notify all channels in the config
-if a condition is unmet.
-
-It can be excuted with:
-
-    ./sshmon.py check <myconfig.yml>
-
-
-### Running Scheduled Job
-
-The best way to run the service automatically is with a cron job.
-
-Edit your cron jobs with
-
-    crontab -e
-
-Add an entry that runs the script every few hours: (or minutes, whatever you like)
-
-    0 */4 * * * /path/to/sshmon.py check /path/to/config.yml
-
-
-### Configuration
-
-Configuration is written in yaml and is a set of servers, with a list of monitors with alarms,
-notification channels and connection details.
-
-See the [Examples](/examples) folder for more sample configs.
-
-An example simple configuration might look something like this:
-
-```
-meta: #Meta section (Optional). Used by summary templates
-  title: "My Cluster Summary"
-  author: "Me"
-
+```yaml
 servers:
-  "Name of server":
+  "我的服务器":
     driver: ssh
     config:
-      host: myhostname.com
-      username: myuser
-    channels: # Notification targets
-      - type: email
-        config:
-          toAddr: myemail@gmail.com
-          subject: "Something went wrong on {server}"
-    monitors: # All alerts and inspectors
+      host: 192.168.1.100
+      username: root
+      password: your_password
+      port: 22
+    monitors:
       - type: memory
-        alarms:
-          "Low Swap": "swap_free.mb < 50"
-          "Low Memory": "mem_free.mb < 5"
       - type: disk
-        alarms:
-          "Low Disk Space": "disk_free.gb < 5"
-        summarize: false # Optional, use if you don't want a monitor to show up in the summary
+      - type: loadavg
+      - type: network
+        config:
+          match: "ens*"
 ```
 
-You can often use YAML's inheritance to simplify your config for more than 1 server.  Each config section also
-has a corresponding `+` version to add more in addition to something merged in.  eg. `monitors+`.
+### 3. 启动监控
 
+```bash
+./start-monitor.sh
+```
 
-All servers are iterated through, and queried for given inspector types. The resulting `metrics` are compared to
-the `alarms`, and if any of them are unmet, a notification it sent to all configured `channels`.
+然后打开浏览器访问：**http://localhost:8080**
 
-#### Data Format
+## 📖 使用说明
 
-All sizes (that is, number of bytes), is enapsulated by the `ByteSize` class, which has helper methods for both friendly
-output, and size casting in the form of `b`, `kb`, `mb`, etc.  eg, you can write `mem_free.mb > 50`.
+### 添加服务器
 
-All timedelta's are encapsulated by the `TimeSpan` class, which has properties that expose reduced forms.
-They are `seconds`, `minutes`, `hours`, and `days`.
+1. 点击右上角 **「➕ 添加服务器」** 按钮
+2. 填写服务器信息：
+   - 服务器名称
+   - 主机地址（IP 或域名）
+   - SSH 端口（默认 22）
+   - SSH 用户名
+   - SSH 密码
+3. 点击 **「✅ 添加服务器」**
 
-Percentages will always be presented in their 0-100 form.
+### 删除服务器
+
+1. 点击 **「➕ 添加服务器」** 按钮
+2. 在服务器列表中找到要删除的服务器
+3. 点击 **「🗑️ 删除」** 按钮
+
+### 切换主题
+
+点击右上角的 **「☀️」** 或 **「🌙」** 按钮即可切换亮色/暗色主题。
+
+## 🛠️ 命令行工具
+
+```bash
+# 查看监控摘要（Markdown格式）
+python3 ./sshmon summary servers.yml -f md
+
+# 生成HTML报告
+python3 ./sshmon summary servers.yml -f modern > report.html
+
+# 检查告警（用于定时任务）
+python3 ./sshmon check servers.yml
+
+# 启动Web服务
+python3 ./sshmon serve servers.yml --port 8080 --refresh 10
+```
+
+## 📁 项目结构
+
+```
+sshsysmon/
+├── servers.yml           # 服务器配置文件
+├── start-monitor.sh    # 一键启动脚本
+├── sshsysmon/
+│   ├── lib/monitor/
+│   │   └── server_http.py  # Web服务
+│   ├── inspectors/      # 监控模块
+│   │   ├── memory.py    # 内存监控
+│   │   ├── disk.py     # 磁盘监控
+│   │   ├── loadavg.py  # CPU负载
+│   │   └── network.py   # 网络流量
+│   └── templates/
+│       └── modern.hb    # Web界面模板
+└── examples/           # 示例配置
+```
+
+## 🔧 支持的监控项
+
+| 监控项 | 说明 | 配置示例 |
+|--------|------|----------|
+| memory | 内存使用情况 | `- type: memory` |
+| disk | 磁盘空间 | `- type: disk` |
+| loadavg | CPU负载 | `- type: loadavg` |
+| network | 网络流量 | `- type: network` |
+| system | 系统信息 | `- type: system` |
+| tcp | 端口检查 | `- type: tcp` |
+
+## ⚠️ 注意事项
+
+1. **SSH 连接**：确保 SSH 用户名和密码正确
+2. **网络**：服务器和监控机器之间需要网络互通
+3. **权限**：SSH 用户需要有读取 `/proc` 文件系统的权限
+
+## 📝 许可证
+
+MIT License
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
 
 ---
 
-## Application
-
-### Components
-
-The applications is built on three components: `Drivers`, `Inspectors`, and `Channels`.
-
-Each has its corresponding folder with abstract implementation.  They are loaded dynamically with their
-name or path provided in the configuration.
-
-#### Drivers
-
-Drivers are classes that define how to read information from a server.  By default, there are two drivers:
-
-##### Local
-
-The local driver is only for your local machine. There is no config for this driver.
-
-##### SSH
-
-The SSH driver is for reaching out to remote machines.  There are several config paramters for this driver:
-
-  * host - The hostname of the machine (IP or Domain)
-  * username - The username to connect with
-  * password - (Not recommended, use key instead) The ssh user's password
-  * key - The path to the private key to use to connect (Default: ~/.ssh/id_rsa)
-  * port - The port to connect to the machine on (Default: 22)
-  * path - The path which proc is located (Default: /proc)
-
---
-
-#### Channels
-
-Channels define what can happen if an alert fires.  There a few built-in.
-
-There are a few variables passed in that can be used to format part of the commands:
-
-  * server - The server that the alert triggered on
-  * alert - The alert that triggered (the name)
-  * inspector - The inspector that triggered the alert
-  * statement - The statement of the inspector that fired the alert
-
-##### stdout
-
-Writes tab-separated data to stdout.  Can be appended to file with bash `>>` operator.
-
-Arguments:
-
-  * timeFormat - Either `ctime` or `epoch`, the format which time is output. Default: `ctime`
-  * format - The format string used to write output. Default: `{time}\t{server}\t{inspector}\t{alert}`
-
-##### command
-
-Executes a shell command on the machine in which the script is running.
-
-Arguments:
-
-  * command - The shell command to execute
-
-##### email
-
-Sends an email via a SMTP server.
-
-By default, it assumes a local SMTP server is setup.  For more complex configs, such as how to use
-gmail, see the examples.
-
-Arguments:
-
-  * toAddr - The address to send the email to
-  * fromAddr - The address the email should come from (default: username@hostname)
-  * host - The SMTP host (default: localhost)
-  * port - The SMTP port (default: 25)
-  * subject - Subject line of email (has reasonable default)
-  * username - Username to authenticate with smtp server (default: none)
-  * password - Password to authenticate with smtp server (default: none)
-  * tls - Should use tls (default: false)
-  * ssl - Should use ssl (default: false)
-
-##### webhook
-
-Calls an http/https endpoint and passes it the JSON model.
-
-Arguments:
-
- * url - The URL to call
- * method - The method to use in the http request (default: POST)
- * headers - A dict of any additional headers to add to the request
- * verifySSL - Whether or not to verify SSL cert (default: True)
-
---
-
-#### Inspectors (Alert Types)
-
-Inspects are parsers that know how to read data from a driver and make sense of it.
-
-##### Memory (memory)
-
-The memory driver returns metrics about the systems memory:
-
-Metrics: mem_total, mem_free, cached, swap_total, swap_free
-
-##### Disk Space (disk)
-
-The Disk driver returns status of the disk space (in GB)
-
-Config:
-
-  * device - The name of the device (Optional, eg /dev/sda)
-  * mount - The mount point of the device (default: /)
-
-Metrics: size, used, available, percent_full
-
-##### Load Average (loadavg)
-
-The load average inspector returns the system's current 1/5/15 minute [load average](http://blog.scoutapp.com/articles/2009/07/31/understanding-load-averages).
-
-Metrics: load_1m, load_5m, load_15m
-
-##### Process Monitor (process)
-
-This inspector will allow you monitor a process on the given machine.
-
-It takes in one **required** config `name`. This will use [wildcard matching](https://docs.python.org/2/library/fnmatch.html) with `*` and `?`.
-
-Metrics: user, pid, cpu, mem, tty
-
-##### TCP (tcp)
-
-The TCP inspector will try to establish a connection on a given port with the same
-remote as the driver.  It's important to note that this does **not** go over SSH, and will
-not verify anything more than that the port is willing to establish a connection.
-
-Config:
-
-  * ports: A list, single port, or CSV of ports to check
-
-Metrics:
-
-  * A dictionary of the requested ports, prefixed with `port_`, and true if they are open, otherwise false (eg `port_22`)
-  * A special `all` metric which will be true if all ports are open
-
-##### HTTP (http)
-
-The Http connector will attempt to do a GET request on a http/https endpoint, and return the data if able.
-
-Config:
-
-  * path: The path to request on (default '/')
-  * port: The port to request at (default 80 for http, 443 for https)
-  * https: True/false if https (default: http)
-  * json: true/false if it should attempt to parse the response as json (Default: false)
-  * match: A regex to match against (default: None)
-
-Metrics:
-
-  * success: A true/false whether the request returns a 2xx, and all requirements were met (matches, or parses)
-  * match: Whether or not the regex matched. `None` if no match requested
-  * json: The parsed json, if requested
-  * url: The requested url
-
-##### Custom Command (exec)
-
-`exec` runs a custom command and returns `stdout`, `stderr`, and `status` (returncode).
-
-Config:
-
-  * command: The shell command to execute
-  * environment: Optional object of environment variables (Default: {})
-  * json: Try to parse the command's output as json (Default: false)
-  * extract: Dict of name:path pairs to extract as metrics, eg `a.[1].c` (Default: None) See: Extracting Typed Json below; json must be `true`
-
-Properties extracted as metrics can be used in alarms
-
-Metrics:
-
-**If json, those will be the output metrics instead**
-
-  * stdout: The out string of the command
-  * stderr: The err string of the command
-  * status: The returncode of the command (0 means normal)
-
-##### File/Path Metadata (FileMeta)
-
-`filemeta` gathers all the metadata of all files in a path
-
-Config:
-
-  * path: Path to gather the file data
-  * match: Matcher to select files within path
-  * maxDepth: The max depth it searches for files
-  * minDepth: The min depth it searches for files
-
-Metrics:
-
-  * count: Number of files that match
-  * oldest: The TimeSpan object of the oldest file
-  * newest: The TimeSpan object of the newest file
-  * largest: ByteSize of the largest file
-  * smallest: ByteSize of smallest file
-  * files: Array of files
-    * path: Path to the file
-    * size: ByteSize of the file
-    * last_access: access date
-    * last_modified: last modified time
-    * age: TimeSpan since last modified
-
-##### Networking Metrics (network)
-
-`network` gathers information about the network usage of system interfaces.
-
-Config:
-
-  * match: Wildcard match to interface name (Default: None)
-  * hideEmpty: Hide interfaces that are empty (no traffic) (Default: False)
-
-Metrics:
-
-  * totals
-    * received
-    * tranmitted
-  * interfaces
-
-##### Core System Metrics (system)
-
-Metrics:
-
-  * uptime: TimeSpan of the time up
-  * idle: CPU time that is idle
-
-### Data
-
-#### Extracting Typed Objects
-
-In cases where SshSysMon can parse and explore json applications, you might want to interpret data
-in a certain way. For example, it may be useful to grab a nested property and compute the TimeSpan
-from now.
-
-Object path selections are separated by `.`, and the optional type follows a `:`
-
-For example, if you have this object:
-```json
-{
-  "a" : {
-    "b" : [
-      "2018-12-15T15:57:17.619242731+01:00"
-    ]
-  }
-}
-```
-
-And you wanted to extract the number of time that has passed between that date and now, your
-selector would be `a.b.[0]:TimeSpanFromNow`
-
-The following types are supported:
-
-  * str: Convert object to string
-  * int: Convert object to int
-  * TimeSpan: Assume object is int number-of-seconds, and make TimeSpan
-  * TimeSpanFromNow: Assume object is parseable datetime, and compute TimeSpan between then and now
-  * DateTime: Parse string as datetime
-
-### Templating
-
-SshSysMon uses handlebars to template its summary output.  See the [templating](/templates) for more information.
-
-#### Prometheus
-
-SshSysMon supports writing to a format supported by prometheus, which can in-turn be pushed to a pushgateway via a pipe.
-
-```sh
-sshmon -f prometheus myconfig.yml | curl --data-binary @- http://prometheus.example.com/metrics/job/sshmon
-```
-
-### Writing Your Own Component
-
-To learn how to write a specific type of component, visit its readme in the appropriate subfolder.
-
-All components must define `def create(args):` as a well-known method to instantiate the class.  `args` will
-be the configuration `dict` given in the configuration.
-
+**技术栈**：Python + Flask + SSH (Paramiko)
