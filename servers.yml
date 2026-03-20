@@ -1,0 +1,39 @@
+meta:
+  title: Linux服务器监控系统
+servers:
+  龙虾服务器-GT:
+    channels:
+    - type: stdout
+    config:
+      host: 192.168.193.12
+      password: celeron
+      port: 22
+      username: gaotao
+    driver: ssh
+    monitors:
+    - type: memory
+    - type: disk
+    - type: loadavg
+    - type: system
+    - config:
+        match: ens*
+      summarize: true
+      type: network
+  龙虾服务器-QL:
+    channels:
+    - type: stdout
+    config:
+      host: 192.168.193.118
+      password: celeron
+      port: 22
+      username: gaotao
+    driver: ssh
+    monitors:
+    - type: memory
+    - type: disk
+    - type: loadavg
+    - type: system
+    - config:
+        match: ens*
+      summarize: true
+      type: network

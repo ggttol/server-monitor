@@ -4,7 +4,9 @@ from datetime import datetime
 from dateutil.parser import parse
 
 # Merge b into a. path is for logging
-def merge(a, b, path=[], overwrite=False):
+def merge(a, b, path=None, overwrite=False):
+	if path is None:
+		path = []
 	o = dict(a) # Clone
 
 	for key in b:

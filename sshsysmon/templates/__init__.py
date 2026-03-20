@@ -3,6 +3,7 @@ import json
 import logging
 import pybars
 import io
+import codecs
 from ..lib.util import sanitize
 
 TEMPLATE_PATH = path.dirname(path.realpath(__file__))
@@ -16,7 +17,7 @@ def __ifEq(this, options, left, right):
 		return options['inverse'](this)
 
 def __replace(this, val, match, withVal):
-	return val.replace(match.decode('string_escape'), withVal.decode('string_escape'))
+	return val.replace(codecs.decode(match, 'string_escape'), codecs.decode(withVal, 'string_escape'))
 
 def __format(this, s, *args):
 	return s.format(*args)

@@ -56,17 +56,22 @@ def run_summary(config, templateName=None):
 	if any(map(lambda x: len(x['errors']) > 0, servers)):
 		sys.exit(4)
 
-
+def run_serve(config_path, host='0.0.0.0', port=5000, refresh=30):
+	from .lib.monitor.server_http import start_server
+	start_server(host=host, port=port, config_path=config_path, refresh_interval=refresh)
 
 def parseArgs(args):
 	p = argparse.ArgumentParser(description = "Run monitoring against servers defined in config")
 
-	p.add_argument('command', help="Command to execute", choices=['check', 'summary'])
-	p.add_argument('configs', metavar='cfg', nargs='+', help="YML config file")
+	p.add_argument('command', help="Command to execute", choices=['check', 'summary', 'serve'])
+	p.add_argument('configs', metavar='cfg', nargs='?', help="YML config file")
 
 	p.add_argument('-v', '--verbose', action='store_true', help="Enable verbose logging")
 	p.add_argument('-m', '--merge', help="Update-merge multiple configs from left to right", action='store_true')
 	p.add_argument('-f', '--format', help="Specify template format to output summary (markdown)", default="md")
+	p.add_argument('-p', '--port', type=int, default=5000, help="Port for serve command (default: 5000)")
+	p.add_argument('-i', '--refresh', type=int, default=30, help="Refresh interval in seconds for serve command (default: 30)")
+	p.add_argument('--host', default='0.0.0.0', help="Host to bind for serve command (default: 0.0.0.0)")
 
 	return p.parse_args(args)
 
@@ -75,6 +80,13 @@ def main(args):
 
 	logging.basicConfig(level = logging.DEBUG if opts.verbose else logging.INFO)
 	logging.getLogger('paramiko').setLevel(logging.WARNING)
+
+	if opts.command == "serve":
+		if not opts.configs:
+			logging.error("serve command requires a config file")
+			sys.exit(1)
+		run_serve(opts.configs, host=opts.host, port=opts.port, refresh=opts.refresh)
+		return
 
 	try:
 		config = reduce(

@@ -24,7 +24,7 @@ class Network(Inspector):
 		interfaces = {}
 
 		for d,v in devices:
-			if (self._match == None or fnmatch(d, self._match)) and (not self._hideEmpty or int(v[1]) > 0 or int(v[9]) > 0):
+			if (self._match == None or fnmatch(d.lower(), self._match.lower())) and (not self._hideEmpty or int(v[1]) > 0 or int(v[9]) > 0):
 				#0,8:bytes, packets, errs, drop, fifo, frame, compressed, [multicast]
 				interfaces[d] = {
 					'receive' : {

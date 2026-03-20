@@ -19,9 +19,9 @@ class Tcp(Inspector):
 		if isinstance(ports, int):
 			self._ports = [ports]
 		elif isinstance(ports, str):
-			self._ports = map(lambda p: int(p.strip()), ports.split(","))
+			self._ports = list(map(lambda p: int(p.strip()), ports.split(",")))
 		elif isinstance(ports, list):
-			self._ports = map(lambda p: int(p), ports)
+			self._ports = list(map(lambda p: int(p), ports))
 		else:
 			raise Exception('Invalid data type for ports')
 

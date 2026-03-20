@@ -1,5 +1,6 @@
 from lib.plugins import Inspector
 import re
+import logging
 try:
     # For Python 3.0 and later
     from urllib.request import urlopen

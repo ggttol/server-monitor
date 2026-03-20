@@ -1,5 +1,10 @@
+__pycache__/
 *.pyc
-*.egg-info
-test.yml
-build/
+*.pyo
+*.egg-info/
 dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
