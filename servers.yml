@@ -15,10 +15,10 @@ servers:
     - type: disk
     - type: loadavg
     - type: system
-    - config:
-        match: ens*
+    - type: network
+      config:
+        hideEmpty: true
       summarize: true
-      type: network
   龙虾服务器-QL:
     channels:
     - type: stdout
@@ -33,7 +33,7 @@ servers:
     - type: disk
     - type: loadavg
     - type: system
-    - config:
-        match: ens*
+    - type: network
+      config:
+        hideEmpty: true
       summarize: true
-      type: network

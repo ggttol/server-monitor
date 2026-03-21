@@ -24,12 +24,8 @@ class Ssh(Driver):
 
 	def readProc(self, path):
 		sftp = self._connectFtp()
-
-		o = StringIO()
-		for line in sftp.open(os.path.join(self._path, path)):
-			o.write(line)
-
-		return o.getvalue()
+		with sftp.open(os.path.join(self._path, path)) as f:
+			return f.read().decode('utf-8')
 
 	def sh(self, cmd):
 		client = self._connect()

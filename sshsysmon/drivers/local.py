@@ -8,7 +8,8 @@ class Local(Driver):
 		self._path = path
 
 	def readProc(self, path):
-		return open(os.path.join(self._path, path), 'r').read()
+		with open(os.path.join(self._path, path), 'r') as f:
+			return f.read()
 
 	def sh(self, cmd):
 		proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)

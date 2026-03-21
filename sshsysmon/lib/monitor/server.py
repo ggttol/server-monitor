@@ -17,10 +17,11 @@ class Server:
 	def createAlerts(self):
 		alerts = []
 
-		for monitor in self._monitors:
+		def process_monitor(monitor):
 			monitor_type = monitor.get('type')
 			monitor_alarms = monitor.get('alarms', {})
 			monitor_config = monitor.get('config', {})
+			monitor_alerts = []
 
 			logging.debug("Creating inspector: %s..." % monitor_type)
 
@@ -34,12 +35,20 @@ class Server:
 					raise Exception("Inspector returned no data: %s" % inspector.getName())
 
 				for alarm_name, statement in monitor_alarms.items():
-					alerts.append(Alert(self._name, monitor_type, alarm_name, statement, metrics))
+					monitor_alerts.append(Alert(self._name, monitor_type, alarm_name, statement, metrics))
 
 			except Exception as e:
 				logging.warning("Error executing inspector %s: %s" % (monitor_type, e))
 				logging.debug(traceback.format_exc())
-				alerts.append(Alert(self._name, monitor_type, "NO_DATA", "True", {}))
+				monitor_alerts.append(Alert(self._name, monitor_type, "NO_DATA", "True", {}))
+			return monitor_alerts
+
+		import concurrent.futures
+		with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+			results = list(executor.map(process_monitor, self._monitors))
+		
+		for res in results:
+			alerts.extend(res)
 
 		return alerts
 
@@ -67,7 +76,8 @@ class Server:
 	def getSummary(self):
 		errors = []
 		results = []
-		for monitor in self._monitors:
+
+		def process_monitor(monitor):
 			if monitor.get('summarize', True): #Ability to hide at monitor level
 				monitor_type = monitor.get('type')
 				monitor_config = monitor.get('config', {})
@@ -91,21 +101,31 @@ class Server:
 							"statement" : statement
 							})
 
-
 					logging.debug("Generating summary metrics...")
-					results.append({
+					return {
 						"type" : monitor_type,
 						"config" : monitor_config,
 						"text" : inspector.getSummary(),
 						"name" : inspector.getName(),
 						"metrics" : metrics,
 						"alarms" : alarms
-					})
+					}, None
 
 				except Exception as e:
 					logging.warning("Error executing inspector %s: %s" % (monitor_type, e))
 					logging.debug(traceback.format_exc())
-					errors.append(e)
+					return None, e
+			return None, None
+
+		import concurrent.futures
+		with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+			monitor_results = list(executor.map(process_monitor, self._monitors))
+
+		for res, err in monitor_results:
+			if res:
+				results.append(res)
+			if err:
+				errors.append(err)
 
 		return {
 			"name" : self._name,

@@ -649,7 +649,7 @@
 		</main>
 
 		<footer class="footer">
-			<p>由 <strong>SshSysMon</strong> 生成 | {{ctime}}</p>
+			<p>自动更新于 {{ctime}}</p>
 		</footer>
 	</div>
 

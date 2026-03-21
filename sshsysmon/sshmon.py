@@ -13,16 +13,24 @@ def run_check(config):
 	count = 0
 	count_exc = 0
 
-	for server_name in config["servers"]:
+	def check_server(server_name):
 		logging.info("Checking server: %s..." % server_name)
-
 		try:
 			server = config["servers"][server_name]
 			server = Server(server_name, server)
-			count += len(server.notifyChannelsOfAlerts())
+			num_alerts = len(server.notifyChannelsOfAlerts())
+			return num_alerts, 0
 		except Exception as e:
 			logging.error("Error checking server %s: %s" % (server_name, e))
-			count_exc += 1
+			return 0, 1
+
+	from concurrent.futures import ThreadPoolExecutor
+	with ThreadPoolExecutor(max_workers=10) as executor:
+		results = list(executor.map(check_server, config["servers"].keys()))
+	
+	for c, e in results:
+		count += c
+		count_exc += e
 
 	sys.stderr.write("There were %d alert(s) triggered\n" % count)
 
@@ -32,15 +40,27 @@ def run_check(config):
 def run_summary(config, templateName=None):
 	servers = []
 	count_exc = 0
-	for server_name, server in config["servers"].items():
-		if server.get('summarize', True):
+
+	def summarize_server(server_name):
+		server_item = config["servers"][server_name]
+		if server_item.get('summarize', True):
 			logging.debug("Checking server: %s..." % server_name)
 			try:
-				server = Server(server_name, server)
-				servers.append(server.getSummary())
+				server = Server(server_name, server_item)
+				return server.getSummary(), 0
 			except Exception as e:
 				logging.warning("Unable to add server summary for %s: %s" % (server_name, e))
-				count_exc += 1
+				return None, 1
+		return None, 0
+
+	from concurrent.futures import ThreadPoolExecutor
+	with ThreadPoolExecutor(max_workers=10) as executor:
+		results = list(executor.map(summarize_server, config["servers"].keys()))
+
+	for s, e in results:
+		if s:
+			servers.append(s)
+		count_exc += e
 
 	data = {
 		"ctime" : time.ctime(),
@@ -53,7 +73,7 @@ def run_summary(config, templateName=None):
 	if count_exc > 0:
 		sys.exit(1)
 
-	if any(map(lambda x: len(x['errors']) > 0, servers)):
+	if any(map(lambda x: len(x.get('errors', [])) > 0, servers)):
 		sys.exit(4)
 
 def run_serve(config_path, host='0.0.0.0', port=5000, refresh=30):
@@ -64,7 +84,7 @@ def parseArgs(args):
 	p = argparse.ArgumentParser(description = "Run monitoring against servers defined in config")
 
 	p.add_argument('command', help="Command to execute", choices=['check', 'summary', 'serve'])
-	p.add_argument('configs', metavar='cfg', nargs='?', help="YML config file")
+	p.add_argument('configs', metavar='cfg', nargs='+', help="YML config file")
 
 	p.add_argument('-v', '--verbose', action='store_true', help="Enable verbose logging")
 	p.add_argument('-m', '--merge', help="Update-merge multiple configs from left to right", action='store_true')
@@ -85,7 +105,7 @@ def main(args):
 		if not opts.configs:
 			logging.error("serve command requires a config file")
 			sys.exit(1)
-		run_serve(opts.configs, host=opts.host, port=opts.port, refresh=opts.refresh)
+		run_serve(opts.configs[0], host=opts.host, port=opts.port, refresh=opts.refresh)
 		return
 
 	try:

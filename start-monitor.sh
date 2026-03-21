@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 服务器监控系统一键启动脚本
+# SSH服务器监控系统一键启动脚本
 # 使用方法: ./start-monitor.sh
 
 cd "$(dirname "$0")"

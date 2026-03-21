@@ -23,19 +23,25 @@ def fetch_all_server_data():
         return {'servers': [], 'timestamp': time.time(), 'error': 'No config loaded'}
 
     from sshsysmon.lib.monitor.server import Server
+    import concurrent.futures
 
-    for server_name, server_config in _monitor_config['servers'].items():
+    def process_server(server_name, server_config):
         try:
             server = Server(server_name, server_config)
-            summary = server.getSummary()
-            servers_data.append(summary)
+            return server.getSummary()
         except Exception as e:
-            servers_data.append({
+            return {
                 'name': server_name,
                 'error': str(e),
                 'inspectors': [],
                 'errors': [str(e)]
-            })
+            }
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {executor.submit(process_server, name, config): name 
+                   for name, config in _monitor_config['servers'].items()}
+        for future in concurrent.futures.as_completed(futures):
+            servers_data.append(future.result())
 
     _server_data = serialize_value({
         'servers': servers_data,
@@ -129,7 +135,7 @@ def api_add_server():
             {'type': 'disk'},
             {'type': 'loadavg'},
             {'type': 'system'},
-            {'type': 'network', 'config': {'match': 'ens*'}, 'summarize': True}
+            {'type': 'network', 'config': {'hideEmpty': True}, 'summarize': True}
         ]
     }
 
@@ -1143,8 +1149,13 @@ def start_server(host='0.0.0.0', port=5000, config_path=None, refresh_interval=3
 
     if config_path:
         load_config(config_path)
-        fetch_all_server_data()
-        thread = threading.Thread(target=background_refresh, args=(refresh_interval,))
+        
+        # 启动后台刷新线程，首次刷新也放在后台进行，避免阻塞服务器启动
+        def initial_and_background_refresh():
+            fetch_all_server_data()
+            background_refresh(refresh_interval)
+            
+        thread = threading.Thread(target=initial_and_background_refresh)
         thread.daemon = True
         thread.start()
 
